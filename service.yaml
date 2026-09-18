@@ -1,0 +1,56 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: vllm-l4-server
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/cpu-throttling: "false"
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "2"
+        run.googleapis.com/container-dependencies: '{"vllm-container":[]}'
+    spec:
+      containerConcurrency: 32
+      timeoutSeconds: 600
+      serviceAccountName: vllm-cloudrun-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com
+      volumes:
+        - name: model-store
+          csi:
+            driver: gcsfuse.run.googleapis.com
+            readOnly: true
+            volumeAttributes:
+              bucketName: YOUR_BUCKET_NAME
+      containers:
+        - name: vllm-container
+          image: vllm/vllm-openai:latest
+          resources:
+            limits:
+              cpu: "8"
+              memory: 32Gi
+              nvidia.com/gpu: "1"
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            - name: model-store
+              mountPath: /mnt/models
+          args:
+            - "serve"
+            - "/mnt/models/models/Qwen2.5-7B-Instruct"
+            - "--served-model-name=qwen-7b"
+            - "--gpu-memory-utilization=0.90"
+            - "--max-model-len=4096"
+            - "--dtype=auto"
+            - "--api-key=sk-vllm-secure-token-12345"
+            - "--enable-chunked-prefill=true"
+            - "--port=8000"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30

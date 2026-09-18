@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vLLM on Google Cloud Platform | Enterprise AI Inference Hub</title>
+  <meta name="description" content="Production-ready serverless LLM serving platform combining vLLM with Google Cloud Run, NVIDIA L4 GPUs, and Cloud Storage FUSE." />
+  
+  <!-- Modern Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-logo">⚡</div>
+      <div class="brand-title">
+        <h1>vLLM on Google Cloud Platform</h1>
+        <div class="subtitle">
+          <span>Enterprise Serverless GPU Inference</span>
+          <span>•</span>
+          <span id="headerRegion">GCP us-central1</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-status-pill">
+      <span class="pulse-dot" id="statusPulseDot"></span>
+      <span id="serviceStatusLabel">CONNECTING...</span>
+      <span class="badge badge-cyan" id="gpuBadge">1x NVIDIA L4 (24GB)</span>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn-secondary" id="btnPingHealth" title="Ping health endpoint">
+        <span id="pingIcon">📡</span> Ping Health (<span id="healthPingMs">--</span>)
+      </button>
+      <a href="https://cloud.google.com/run" target="_blank" class="btn-secondary">GCP Console</a>
+    </div>
+  </header>
+
+  <!-- Metrics Strip -->
+  <section class="metrics-strip">
+    <div class="metric-badge-card">
+      <div class="metric-icon icon-cyan">🚀</div>
+      <div class="metric-details">
+        <div class="label">Serving Engine</div>
+        <div class="value">vLLM 0.6+</div>
+        <div class="sub">PagedAttention & Continuous Batching</div>
+      </div>
+    </div>
+
+    <div class="metric-badge-card">
+      <div class="metric-icon icon-purple">⚡</div>
+      <div class="metric-details">
+        <div class="label">Hardware Accelerator</div>
+        <div class="value">NVIDIA L4 GPU</div>
+        <div class="sub">24GB GDDR6 VRAM • 8 vCPU • 32GB</div>
+      </div>
+    </div>
+
+    <div class="metric-badge-card">
+      <div class="metric-icon icon-green">📁</div>
+      <div class="metric-details">
+        <div class="label">Weight Storage</div>
+        <div class="value">GCS FUSE Mount</div>
+        <div class="sub">Mounted at <code style="color: var(--accent-cyan);">/mnt/models</code></div>
+      </div>
+    </div>
+
+    <div class="metric-badge-card">
+      <div class="metric-icon icon-amber">📉</div>
+      <div class="metric-details">
+        <div class="label">Scale Architecture</div>
+        <div class="value">Scale-to-Zero (0-2)</div>
+        <div class="sub">$0/hr when idle • Auto-scaling</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Navigation Tabs -->
+  <nav class="tabs-navigation">
+    <button class="tab-btn active" data-tab="tab-rag">⚡ RAG & Document Intelligence</button>
+    <button class="tab-btn" data-tab="tab-control">🛡️ Control Plane & Telemetry</button>
+    <button class="tab-btn" data-tab="tab-models">📦 Model Hub & GCS Stager</button>
+    <button class="tab-btn" data-tab="tab-finops">💰 FinOps & Cost Intelligence</button>
+    <button class="tab-btn" data-tab="tab-dev">💻 API & Developer Hub</button>
+  </nav>
+
+  <!-- Main Views Container -->
+  <main class="main-content">
+
+    <!-- TAB 1: RAG & Document Intelligence -->
+    <div class="tab-pane active" id="tab-rag">
+      <div class="playground-layout">
+        
+        <!-- Left Column: Context Document & Query Controls -->
+        <div class="panel-card">
+          <div class="panel-title-bar">
+            <h2>📄 Context Document (GCS Ingested)</h2>
+            <button class="btn-secondary" id="btnReloadSample" style="font-size: 0.75rem; padding: 0.3rem 0.6rem;">
+              Reset Sample Contract
+            </button>
+          </div>
+
+          <div class="doc-area-wrapper">
+            <textarea id="documentContextText" placeholder="Paste enterprise compliance document, contract, or policy here..."></textarea>
+          </div>
+
+          <div class="query-box-wrapper">
+            <input type="text" id="ragQueryInput" class="query-input" value="What are the specific penalties and liquidated damages if a data breach occurs?" placeholder="Ask compliance or technical questions..." />
+            <button class="btn-primary" id="btnRunStream">Ask vLLM</button>
+          </div>
+
+          <!-- Fast Presets -->
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <span style="font-size: 0.75rem; color: var(--text-muted); align-self: center;">Quick Presets:</span>
+            <button class="btn-secondary preset-btn" data-q="What are the specific penalties and liquidated damages if a data breach occurs?">Breach Liabilities</button>
+            <button class="btn-secondary preset-btn" data-q="What are the guaranteed monthly uptime SLAs and latency thresholds?">SLA Commitments</button>
+            <button class="btn-secondary preset-btn" data-q="Does this agreement allow transmitting data to third-party commercial LLMs?">Data Privacy Covenant</button>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+            <div>
+              <strong style="font-size: 0.9rem;">Zero-Hallucination Schema Extraction</strong>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Enforce strict Pydantic JSON decoding via vLLM FSM</div>
+            </div>
+            <button class="btn-secondary" id="btnRunExtract" style="border-color: var(--accent-purple); color: var(--accent-purple);">
+              Run Audit Extraction
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Column: Live Streaming Terminal & Telemetry -->
+        <div class="panel-card">
+          <div class="panel-title-bar">
+            <h2>⚡ Live Inference Stream</h2>
+            <span class="badge badge-purple" id="modelActiveBadge">qwen-7b</span>
+          </div>
+
+          <!-- Live Telemetry Meter -->
+          <div class="telemetry-meter">
+            <div class="meter-block">
+              <div class="meter-label">Time to First Token</div>
+              <div class="meter-value" id="metricTTFT">-- ms</div>
+            </div>
+            <div class="meter-block">
+              <div class="meter-label">Time Per Token</div>
+              <div class="meter-value" id="metricTPOT">-- ms</div>
+            </div>
+            <div class="meter-block">
+              <div class="meter-label">Throughput</div>
+              <div class="meter-value" id="metricTPS">-- tok/s</div>
+            </div>
+            <div class="meter-block">
+              <div class="meter-label">Tokens Generated</div>
+              <div class="meter-value" id="metricTokens">0</div>
+            </div>
+          </div>
+
+          <!-- Streaming Terminal -->
+          <div class="output-terminal-wrapper" id="terminalOutput">
+Click "Ask vLLM" or "Run Audit Extraction" to begin streaming real-time tokens from your Google Cloud Run vLLM endpoint.
+
+Ready to stream...</div>
+
+          <!-- Guided Extraction Results View -->
+          <div id="extractionContainer" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+              <h3 style="font-size: 0.95rem; color: var(--accent-purple);">✓ Validated Pydantic Schema Output</h3>
+              <button class="btn-secondary" id="btnCopyJson" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;">Copy JSON</button>
+            </div>
+            <div class="extracted-report-grid" id="extractedCardsGrid"></div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 2: Control Plane & Telemetry -->
+    <div class="tab-pane" id="tab-control">
+      <div class="panel-card">
+        <div class="panel-title-bar">
+          <h2>🛡️ Google Cloud Run & Accelerator Infrastructure</h2>
+          <span class="badge badge-green">Production Configuration</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+          <div class="report-card">
+            <div class="title">Cloud Run Service URL</div>
+            <div class="detail" id="ctrlServiceUrl" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent-cyan); word-break: break-all;">--</div>
+          </div>
+
+          <div class="report-card">
+            <div class="title">GCP Project & Region</div>
+            <div class="detail" id="ctrlProjectRegion">--</div>
+          </div>
+
+          <div class="report-card">
+            <div class="title">GPU Hardware</div>
+            <div class="detail">1x NVIDIA L4 (24GB GDDR6 VRAM)</div>
+          </div>
+
+          <div class="report-card">
+            <div class="title">GCS FUSE Bucket</div>
+            <div class="detail" id="ctrlBucketName" style="font-family: var(--font-mono); font-size: 0.85rem;">--</div>
+          </div>
+
+          <div class="report-card">
+            <div class="title">Autoscaling Policy</div>
+            <div class="detail">min: 0 | max: 2 (Cold starts scale to 0 when idle)</div>
+          </div>
+
+          <div class="report-card">
+            <div class="title">Execution Environment</div>
+            <div class="detail">Google Cloud Run Gen 2 • gcsfuse CSI driver</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Knative Service Declaration (`service.yaml`)</h3>
+          <div class="snippet-box">
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: vllm-l4-server
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/launch-stage: BETA
+        run.googleapis.com/accelerator: nvidia-l4
+        run.googleapis.com/gpu-count: "1"
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "2"
+    spec:
+      containers:
+      - image: vllm/vllm-openai:latest
+        args: ["--model", "/mnt/models/Qwen2.5-7B-Instruct", "--served-model-name", "qwen-7b", "--max-model-len", "8192"]
+        volumeMounts:
+        - name: gcs-weights
+          mountPath: /mnt/models
+      volumes:
+      - name: gcs-weights
+        csi:
+          driver: gcsfuse.run.googleapis.com
+          readOnly: true
+          volumeAttributes:
+            bucketName: ${BUCKET_NAME}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: Model Hub & GCS Stager -->
+    <div class="tab-pane" id="tab-models">
+      <div class="panel-card">
+        <div class="panel-title-bar">
+          <h2>📦 Model Hub & Cloud Storage Sync</h2>
+          <span class="badge badge-cyan">Zero-Bloat Weights</span>
+        </div>
+        <p style="color: var(--text-secondary); font-size: 0.9rem;">
+          Instead of baking large model weights (15GB+) into container images, vLLM mounts weights on-demand from Google Cloud Storage via Cloud Storage FUSE. Select any model below to generate the sync command.
+        </p>
+
+        <div class="models-grid" id="modelsCatalogContainer">
+          <!-- Populated dynamically by JavaScript -->
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Quick Staging Command Generator</h3>
+          <div class="snippet-box" id="stagingCommandSnippet">
+python sync_model.py --model Qwen/Qwen2.5-7B-Instruct --bucket your-gcp-project-id-vllm-models --subdir models/Qwen2.5-7B-Instruct
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: FinOps & Cost Intelligence -->
+    <div class="tab-pane" id="tab-finops">
+      <div class="panel-card">
+        <div class="panel-title-bar">
+          <h2>💰 FinOps & Total Cost of Ownership (TCO) Simulator</h2>
+          <span class="badge badge-green">Save up to 70% vs Commercial APIs</span>
+        </div>
+
+        <div class="finops-grid">
+          <div>
+            <div class="slider-group">
+              <div class="slider-header">
+                <span>Monthly Request Volume:</span>
+                <strong id="labelReqVolume" style="color: var(--accent-cyan);">1,000,000 requests</strong>
+              </div>
+              <input type="range" id="sliderVolume" class="slider-control" min="50000" max="5000000" step="50000" value="1000000" />
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span>Average Context Tokens per Query:</span>
+                <strong id="labelPromptTokens" style="color: var(--accent-purple);">800 tokens</strong>
+              </div>
+              <input type="range" id="sliderPromptTokens" class="slider-control" min="200" max="4000" step="100" value="800" />
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span>Average Output Tokens per Query:</span>
+                <strong id="labelOutputTokens" style="color: var(--accent-emerald);">200 tokens</strong>
+              </div>
+              <input type="range" id="sliderOutputTokens" class="slider-control" min="50" max="1000" step="25" value="200" />
+            </div>
+
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1rem; margin-top: 1rem;">
+              <h4 style="font-size: 0.85rem; color: var(--accent-cyan); margin-bottom: 0.5rem;">Why Scale-to-Zero Wins for Enterprises</h4>
+              <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5;">
+                In typical enterprise environments (8 hours active traffic per workday), servers sit completely idle during nights, weekends, and holidays (~65% of total time). Cloud Run scales instances to 0 when idle, saving $450–$600 per month compared to 24/7 dedicated GKE nodes.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <h3 style="font-size: 1rem; margin-bottom: 0.5rem;">Monthly Cost Comparison</h3>
+            <table class="comparison-table">
+              <thead>
+                <tr>
+                  <th>Platform</th>
+                  <th>Idle Cost</th>
+                  <th>Estimated Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <strong>Commercial Closed SaaS</strong><br />
+                    <span style="font-size: 0.72rem; color: var(--text-muted);">$2.50 / $10.00 per 1M tokens</span>
+                  </td>
+                  <td>$0 / mo</td>
+                  <td id="costCommercial" style="color: var(--accent-rose); font-weight: 700;">$4,500 / mo</td>
+                </tr>
+                <tr>
+                  <td>
+                    <strong>Dedicated GKE / GCE</strong><br />
+                    <span style="font-size: 0.72rem; color: var(--text-muted);">24/7 1x L4 node ($0.95/hr)</span>
+                  </td>
+                  <td>$684 / mo</td>
+                  <td id="costDedicated" style="color: var(--accent-amber); font-weight: 700;">$684 / mo (fixed)</td>
+                </tr>
+                <tr class="highlight">
+                  <td>
+                    <strong>Cloud Run vLLM (Scale-to-0)</strong><br />
+                    <span style="font-size: 0.72rem; color: var(--accent-cyan);">Per-second active GPU billing</span>
+                  </td>
+                  <td style="color: var(--accent-emerald); font-weight: 700;">$0 / mo</td>
+                  <td id="costCloudRun" style="color: var(--accent-cyan); font-weight: 800; font-size: 1.15rem;">$385 / mo</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style="margin-top: 1.5rem; text-align: center; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-md); padding: 1rem;">
+              <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Estimated Enterprise Monthly Savings</div>
+              <div id="savingsPercent" style="font-family: var(--font-display); font-size: 2rem; font-weight: 800; color: var(--accent-emerald);">85% SAVINGS</div>
+              <div id="savingsDollars" style="font-size: 0.85rem; color: #a7f3d0;">Save ~$3,815/mo vs third-party commercial APIs</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: API & Developer Hub -->
+    <div class="tab-pane" id="tab-dev">
+      <div class="panel-card">
+        <div class="panel-title-bar">
+          <h2>💻 Developer Integration & API Snippets</h2>
+          <span class="badge badge-purple">OpenAI Compatible</span>
+        </div>
+
+        <p style="color: var(--text-secondary); font-size: 0.9rem;">
+          vLLM implements the standard OpenAI specification. You can swap any OpenAI-compatible SDK (Python, Node.js, LangChain, LlamaIndex, LiteLLM) simply by pointing the <code style="color: var(--accent-cyan);">base_url</code> to your Google Cloud Run endpoint.
+        </p>
+
+        <div style="margin-top: 1rem;">
+          <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem;">cURL (Streaming SSE)</h3>
+          <div class="snippet-box">
+            <button class="copy-btn" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">Copy</button>
+            <pre id="snippetCurl">curl -X POST "${SERVICE_URL}/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${VLLM_API_KEY}" \
+  -d '{
+    "model": "qwen-7b",
+    "messages": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "Explain PagedAttention in 2 sentences."}
+    ],
+    "stream": true
+  }'</pre>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Python (Official OpenAI SDK)</h3>
+          <div class="snippet-box">
+            <button class="copy-btn" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">Copy</button>
+            <pre id="snippetPython">from openai import OpenAI
+
+client = OpenAI(
+    base_url="${SERVICE_URL}/v1",
+    api_key="${VLLM_API_KEY}"
+)
+
+stream = client.chat.completions.create(
+    model="qwen-7b",
+    messages=[{"role": "user", "content": "Hello vLLM on GCP Cloud Run!"}],
+    stream=True
+)
+
+for chunk in stream:
+    print(chunk.choices[0].delta.content or "", end="", flush=True)</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <p>vLLM on Google Cloud Platform • High-Throughput Serverless GPU Inference with NVIDIA L4 & GCS FUSE</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

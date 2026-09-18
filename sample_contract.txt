@@ -1,0 +1,21 @@
+MASTER CLOUD SERVICES AND DATA PROTECTION AGREEMENT
+Agreement Reference: MSA-2026-CLOUD-0988
+Effective Date: January 15, 2026
+Parties:
+- Customer: Apex Financial Technologies Corp. ("Apex"), Delaware, USA
+- Service Provider: Global Cloud Infrastructure Inc. ("Provider"), California, USA
+
+1. SCOPE OF SERVICES & DATA PRIVACY
+1.1 Data Residency: All Customer Financial Records and Personally Identifiable Information (PII) must be processed and stored exclusively within the United States (GCP us-central1 / us-east4).
+1.2 Regulatory Compliance: Provider warrants that all services rendered comply with SOC 2 Type II, ISO 27001, and HIPAA Security Standards.
+1.3 Third-Party Model Egress: Provider expressly covenants that no Customer data, prompts, context, or generated tokens shall be transmitted to unvetted third-party commercial LLM providers. All model inference must take place within private, single-tenant, or dedicated virtual boundary VPCs.
+
+2. SERVICE LEVEL AGREEMENT (SLA) & PERFORMANCE COMMITMENTS
+2.1 System Availability: Provider guarantees 99.95% monthly uptime.
+2.2 Latency Thresholds: High-priority inference API requests must maintain a Time to First Token (TTFT) under 120ms (P95) and output throughput not less than 45 tokens per second per stream.
+2.3 Unplanned Downtime Remedies: If monthly availability falls below 99.95%, Customer receives a 15% service credit. If availability falls below 99.0%, Customer receives a 50% service credit.
+
+3. LIABILITY, INDEMNIFICATION, AND PENALTIES
+3.1 Limitation of Liability: Except in cases of gross negligence, willful misconduct, or unauthorized data breach, each party's aggregate liability under this Agreement is capped at $5,000,000.00 USD.
+3.2 Data Breach Indemnity: In the event of an unmitigated exfiltration of sensitive banking or financial records resulting from Provider's security failure, Provider shall indemnify Customer up to a liquidated damages ceiling of $25,000,000.00 USD and cover mandatory customer notification and forensic audit costs.
+3.3 Governing Law: This Agreement shall be governed by the laws of the State of New York.
