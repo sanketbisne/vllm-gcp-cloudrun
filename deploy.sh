@@ -105,7 +105,7 @@ gcloud beta run deploy "${SERVICE_NAME}" \
     --add-volume="name=model-store,type=cloud-storage,bucket=${BUCKET_NAME},readonly=true" \
     --add-volume-mount="volume=model-store,mount-path=/mnt/models" \
     --port=8000 \
-    --set-env-vars="VLLM_API_KEY=${VLLM_API_KEY}" \
+    --set-env-vars="VLLM_API_KEY=${VLLM_API_KEY},OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4" \
     --args="serve",\
 "/mnt/models/${MODEL_SUBDIR}",\
 "--served-model-name=${SERVED_MODEL_NAME}",\
@@ -119,7 +119,7 @@ gcloud beta run deploy "${SERVICE_NAME}" \
     --concurrency="${CONCURRENCY}" \
     --timeout=900 \
     --startup-probe=initialDelaySeconds=10,periodSeconds=10,timeoutSeconds=10,failureThreshold=60,tcpSocket.port=8000 \
-    --allow-unauthenticated
+    --no-allow-unauthenticated
 
 # 5. Output Service URL
 echo "[5/5] Deployment complete! Fetching URL..."
