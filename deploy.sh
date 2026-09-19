@@ -88,8 +88,12 @@ fi
 # 2.5 Auto-verify & sync model weights if missing
 echo "[2.5/5] Checking model weights at gs://${BUCKET_NAME}/${MODEL_SUBDIR}..."
 if ! gcloud storage ls "gs://${BUCKET_NAME}/${MODEL_SUBDIR}/config.json" &>/dev/null; then
+    PYTHON_EXEC="python3"
+    if [[ -x ".venv/bin/python3" ]]; then
+        PYTHON_EXEC=".venv/bin/python3"
+    fi
     echo "Model weights missing in GCS. Syncing ${MODEL_ID} to gs://${BUCKET_NAME}/${MODEL_SUBDIR}..."
-    python3 sync_model.py --model "${MODEL_ID}" --bucket "${BUCKET_NAME}" --subdir "${MODEL_SUBDIR}"
+    "$PYTHON_EXEC" sync_model.py --model "${MODEL_ID}" --bucket "${BUCKET_NAME}" --subdir "${MODEL_SUBDIR}"
 else
     echo "Model weights verified in GCS bucket."
 fi
