@@ -79,16 +79,23 @@ gcloud storage buckets add-iam-policy-binding "gs://${BUCKET_NAME}" \
     --member="serviceAccount:${SA_EMAIL}" \
     --role="roles/storage.objectViewer" >/dev/null
 
+ENABLE_GPU="${ENABLE_GPU:-true}"
+
 # 4. Deploy to Cloud Run
-echo "[4/5] Deploying Cloud Run Service with NVIDIA L4 GPU..."
+echo "[4/5] Deploying Cloud Run Service (GPU: ${ENABLE_GPU})..."
+
+GPU_FLAGS=()
+if [[ "$ENABLE_GPU" == "true" ]]; then
+    GPU_FLAGS=(--gpu=1 --gpu-type=nvidia-l4 --cpu=8 --memory=32Gi)
+else
+    GPU_FLAGS=(--cpu=4 --memory=16Gi)
+fi
+
 gcloud beta run deploy "${SERVICE_NAME}" \
     --image="vllm/vllm-openai:latest" \
     --region="${GCP_REGION}" \
     --service-account="${SA_EMAIL}" \
-    --gpu=1 \
-    --gpu-type=nvidia-l4 \
-    --cpu=8 \
-    --memory=32Gi \
+    "${GPU_FLAGS[@]}" \
     --no-cpu-throttling \
     --execution-environment=gen2 \
     --add-volume="name=model-store,type=cloud-storage,bucket=${BUCKET_NAME},readonly=true" \

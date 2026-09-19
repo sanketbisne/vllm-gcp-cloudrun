@@ -9,7 +9,7 @@
 
 An enterprise-grade, infrastructure-as-code automation setup to deploy **vLLM** on **Google Cloud Run** with **1x NVIDIA L4 GPU (24GB VRAM)** and model weights mounted seamlessly from **Google Cloud Storage (GCS)** via **Cloud Storage FUSE**.
 
-![Architecture Banner](assets/banner.jpg)
+![Architecture Banner](./assets/banner.jpg)
 
 </div>
 
