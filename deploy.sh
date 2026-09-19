@@ -86,7 +86,7 @@ echo "[4/5] Deploying Cloud Run Service (GPU: ${ENABLE_GPU})..."
 
 GPU_FLAGS=()
 VLLM_ENV_VARS="VLLM_API_KEY=${VLLM_API_KEY}"
-VLLM_SERVE_ARGS="serve,/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080"
+VLLM_SERVE_ARGS="serve,--model=/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080"
 
 if [[ "$ENABLE_GPU" == "true" ]]; then
     GPU_FLAGS=(--gpu=1 --gpu-type=nvidia-l4 --cpu=8 --memory=32Gi)
@@ -94,10 +94,10 @@ if [[ "$ENABLE_GPU" == "true" ]]; then
 else
     MODEL_SUBDIR="${MODEL_SUBDIR:-models/Qwen2.5-1.5B-Instruct}"
     SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-qwen-1.5b}"
-    VLLM_SERVE_ARGS="serve,/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080"
+    VLLM_SERVE_ARGS="serve,--model=/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080"
     GPU_FLAGS=(--cpu=4 --memory=16Gi)
     VLLM_ENV_VARS="${VLLM_ENV_VARS},VLLM_TARGET_DEVICE=cpu,OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4"
-    VLLM_SERVE_ARGS="${VLLM_SERVE_ARGS},--dtype=float32"
+    VLLM_SERVE_ARGS="${VLLM_SERVE_ARGS},--dtype=float32,--enforce-eager"
 fi
 
 gcloud beta run deploy "${SERVICE_NAME}" \
@@ -110,14 +110,17 @@ gcloud beta run deploy "${SERVICE_NAME}" \
     --execution-environment=gen2 \
     --add-volume="name=model-store,type=cloud-storage,bucket=${BUCKET_NAME},readonly=true" \
     --add-volume-mount="volume=model-store,mount-path=/mnt/models" \
+    --add-volume="name=shm,type=in-memory,size-limit=2Gi" \
+    --add-volume-mount="volume=shm,mount-path=/dev/shm" \
     --port=8080 \
     --set-env-vars="${VLLM_ENV_VARS}" \
+    --command="vllm" \
     --args="${VLLM_SERVE_ARGS}" \
     --min-instances="${MIN_INSTANCES}" \
     --max-instances="${MAX_INSTANCES}" \
     --concurrency="${CONCURRENCY}" \
     --timeout=900 \
-    --startup-probe=initialDelaySeconds=10,periodSeconds=10,timeoutSeconds=10,failureThreshold=60,tcpSocket.port=8080 \
+    --startup-probe=initialDelaySeconds=15,periodSeconds=10,timeoutSeconds=10,failureThreshold=60,httpGet.port=8080,httpGet.path=/health \
     --no-allow-unauthenticated
 
 # 5. Output Service URL
