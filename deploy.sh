@@ -86,15 +86,15 @@ echo "[4/5] Deploying Cloud Run Service (GPU: ${ENABLE_GPU})..."
 
 GPU_FLAGS=()
 VLLM_ENV_VARS="VLLM_API_KEY=${VLLM_API_KEY}"
-VLLM_EXTRA_ARG=""
+VLLM_SERVE_ARGS="serve,/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080"
 
 if [[ "$ENABLE_GPU" == "true" ]]; then
     GPU_FLAGS=(--gpu=1 --gpu-type=nvidia-l4 --cpu=8 --memory=32Gi)
-    VLLM_EXTRA_ARG="--gpu-memory-utilization=${GPU_MEMORY_UTILIZATION}"
+    VLLM_SERVE_ARGS="${VLLM_SERVE_ARGS},--gpu-memory-utilization=${GPU_MEMORY_UTILIZATION}"
 else
     GPU_FLAGS=(--cpu=4 --memory=16Gi)
     VLLM_ENV_VARS="${VLLM_ENV_VARS},VLLM_TARGET_DEVICE=cpu,OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4"
-    VLLM_EXTRA_ARG="--dtype=float32"
+    VLLM_SERVE_ARGS="${VLLM_SERVE_ARGS},--dtype=float32"
 fi
 
 gcloud beta run deploy "${SERVICE_NAME}" \
@@ -109,13 +109,7 @@ gcloud beta run deploy "${SERVICE_NAME}" \
     --add-volume-mount="volume=model-store,mount-path=/mnt/models" \
     --port=8080 \
     --set-env-vars="${VLLM_ENV_VARS}" \
-    --args="serve",\
-"/mnt/models/${MODEL_SUBDIR}",\
-"--served-model-name=${SERVED_MODEL_NAME}",\
-"${VLLM_EXTRA_ARG}",\
-"--max-model-len=${MAX_MODEL_LEN}",\
-"--api-key=${VLLM_API_KEY}",\
-"--port=8080" \
+    --args="${VLLM_SERVE_ARGS}" \
     --min-instances="${MIN_INSTANCES}" \
     --max-instances="${MAX_INSTANCES}" \
     --concurrency="${CONCURRENCY}" \
