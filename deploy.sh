@@ -38,6 +38,7 @@ if [[ "$ENABLE_GPU" == "true" ]]; then
     MODEL_SUBDIR="${MODEL_SUBDIR:-models/Qwen2.5-7B-Instruct}"
     SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-qwen-7b}"
     GPU_FLAGS=(--gpu=1 --gpu-type=nvidia-l4 --cpu=8 --memory=32Gi)
+    VLLM_COMMAND="vllm"
     VLLM_SERVE_ARGS="serve,/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080,--gpu-memory-utilization=${GPU_MEMORY_UTILIZATION}"
     VLLM_ENV_VARS="VLLM_API_KEY=${VLLM_API_KEY}"
 else
@@ -45,8 +46,9 @@ else
     MODEL_SUBDIR="${MODEL_SUBDIR:-models/Qwen2.5-1.5B-Instruct}"
     SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-qwen-1.5b}"
     GPU_FLAGS=(--cpu=4 --memory=16Gi)
-    VLLM_SERVE_ARGS="serve,/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080,--dtype=float32,--enforce-eager"
-    VLLM_ENV_VARS="VLLM_API_KEY=${VLLM_API_KEY},VLLM_TARGET_DEVICE=cpu,VLLM_USE_V1=0,OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4"
+    VLLM_COMMAND="python3"
+    VLLM_SERVE_ARGS="-m,vllm.entrypoints.openai.api_server,--model=/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080,--dtype=float32,--enforce-eager"
+    VLLM_ENV_VARS="VLLM_API_KEY=${VLLM_API_KEY},VLLM_TARGET_DEVICE=cpu,OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4"
 fi
 
 if [[ -z "$GCP_PROJECT_ID" ]]; then
@@ -127,7 +129,7 @@ gcloud beta run deploy "${SERVICE_NAME}" \
     --add-volume-mount="volume=model-store,mount-path=/mnt/models" \
     --port=8080 \
     --set-env-vars="${VLLM_ENV_VARS}" \
-    --command="vllm" \
+    --command="${VLLM_COMMAND}" \
     --args="${VLLM_SERVE_ARGS}" \
     --min-instances="${MIN_INSTANCES}" \
     --max-instances="${MAX_INSTANCES}" \
