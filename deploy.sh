@@ -100,6 +100,7 @@ gcloud beta run deploy "${SERVICE_NAME}" \
     --service-account="${SA_EMAIL}" \
     "${GPU_FLAGS[@]}" \
     --no-cpu-throttling \
+    --cpu-boost \
     --execution-environment=gen2 \
     --add-volume="name=model-store,type=cloud-storage,bucket=${BUCKET_NAME},readonly=true" \
     --add-volume-mount="volume=model-store,mount-path=/mnt/models" \
