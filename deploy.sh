@@ -47,7 +47,7 @@ else
     SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-qwen-1.5b}"
     GPU_FLAGS=(--cpu=4 --memory=16Gi)
     VLLM_COMMAND="python3"
-    VLLM_SERVE_ARGS="-c,import torch; c=torch.ops._C if '_C' in dir(torch.ops) else None; c.init_cpu_memory_env = lambda *a: None if c else None; from vllm.entrypoints.cli.main import main; main(),serve,/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080,--dtype=float32,--enforce-eager"
+    VLLM_SERVE_ARGS="-c,import torch; import torch._ops; torch._ops._OpNamespace.__getattr__ = lambda *args: (lambda *a: None); from vllm.entrypoints.cli.main import main; main(),serve,/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080,--dtype=float32,--enforce-eager"
     VLLM_ENV_VARS="VLLM_API_KEY=${VLLM_API_KEY},VLLM_TARGET_DEVICE=cpu,OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4"
 fi
 
