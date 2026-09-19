@@ -46,7 +46,7 @@ else
     SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-qwen-1.5b}"
     GPU_FLAGS=(--cpu=4 --memory=16Gi)
     VLLM_SERVE_ARGS="serve,/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080,--dtype=float32,--enforce-eager"
-    VLLM_ENV_VARS="VLLM_API_KEY=${VLLM_API_KEY},VLLM_TARGET_DEVICE=cpu,OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4"
+    VLLM_ENV_VARS="VLLM_API_KEY=${VLLM_API_KEY},VLLM_TARGET_DEVICE=cpu,VLLM_USE_V1=0,OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4"
 fi
 
 if [[ -z "$GCP_PROJECT_ID" ]]; then
