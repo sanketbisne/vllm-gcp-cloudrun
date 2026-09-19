@@ -115,8 +115,6 @@ gcloud beta run deploy "${SERVICE_NAME}" \
     --execution-environment=gen2 \
     --add-volume="name=model-store,type=cloud-storage,bucket=${BUCKET_NAME},readonly=true" \
     --add-volume-mount="volume=model-store,mount-path=/mnt/models" \
-    --add-volume="name=shm,type=in-memory,size-limit=2Gi" \
-    --add-volume-mount="volume=shm,mount-path=/dev/shm" \
     --port=8080 \
     --set-env-vars="${VLLM_ENV_VARS}" \
     --command="vllm" \
