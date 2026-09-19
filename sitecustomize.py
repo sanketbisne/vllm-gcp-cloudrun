@@ -31,11 +31,15 @@ _FALLBACK_OPS = {
 orig_getattr = torch._ops._OpNamespace.__getattr__
 
 def safe_getattr(self, name):
-    ns_name = getattr(self, "_name", getattr(self, "name", None))
-    if ns_name in ("_C", "vllm", None) and name in _FALLBACK_OPS:
+    try:
+        ns_name = object.__getattribute__(self, "_name")
+    except AttributeError:
+        ns_name = None
+    if ns_name in ("_C", "vllm") and name in _FALLBACK_OPS:
         return _FALLBACK_OPS[name]
     return orig_getattr(self, name)
 
 torch._ops._OpNamespace.__getattr__ = safe_getattr
+
 
 
