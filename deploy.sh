@@ -25,15 +25,29 @@ else
 fi
 SERVICE_NAME="${SERVICE_NAME:-vllm-l4-server}"
 BUCKET_NAME="${BUCKET_NAME:-${GCP_PROJECT_ID}-vllm-models}"
-MODEL_SUBDIR="${MODEL_SUBDIR:-models/Qwen2.5-7B-Instruct}"
-SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-qwen-7b}"
 VLLM_API_KEY="${VLLM_API_KEY:-sk-vllm-secure-token-12345}"
-
 MAX_MODEL_LEN="${MAX_MODEL_LEN:-4096}"
 GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.90}"
 CONCURRENCY="${CONCURRENCY:-32}"
 MIN_INSTANCES="${MIN_INSTANCES:-0}"
 MAX_INSTANCES="${MAX_INSTANCES:-2}"
+ENABLE_GPU="${ENABLE_GPU:-true}"
+
+if [[ "$ENABLE_GPU" == "true" ]]; then
+    MODEL_ID="${MODEL_ID:-Qwen/Qwen2.5-7B-Instruct}"
+    MODEL_SUBDIR="${MODEL_SUBDIR:-models/Qwen2.5-7B-Instruct}"
+    SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-qwen-7b}"
+    GPU_FLAGS=(--gpu=1 --gpu-type=nvidia-l4 --cpu=8 --memory=32Gi)
+    VLLM_SERVE_ARGS="serve,/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080,--gpu-memory-utilization=${GPU_MEMORY_UTILIZATION}"
+    VLLM_ENV_VARS="VLLM_API_KEY=${VLLM_API_KEY}"
+else
+    MODEL_ID="${MODEL_ID:-Qwen/Qwen2.5-1.5B-Instruct}"
+    MODEL_SUBDIR="${MODEL_SUBDIR:-models/Qwen2.5-1.5B-Instruct}"
+    SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-qwen-1.5b}"
+    GPU_FLAGS=(--cpu=4 --memory=16Gi)
+    VLLM_SERVE_ARGS="serve,/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080,--dtype=float32,--enforce-eager"
+    VLLM_ENV_VARS="VLLM_API_KEY=${VLLM_API_KEY},VLLM_TARGET_DEVICE=cpu,OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4"
+fi
 
 if [[ -z "$GCP_PROJECT_ID" ]]; then
     echo "Error: GCP_PROJECT_ID must be set in .env or via gcloud config." >&2
@@ -41,11 +55,12 @@ if [[ -z "$GCP_PROJECT_ID" ]]; then
 fi
 
 echo "=========================================================="
-echo " Deploying vLLM to Cloud Run with NVIDIA L4 GPU"
+echo " Deploying vLLM to Cloud Run (GPU: ${ENABLE_GPU})"
 echo " Project:       $GCP_PROJECT_ID"
 echo " Region:        $GCP_REGION"
 echo " Service:       $SERVICE_NAME"
 echo " Bucket:        gs://$BUCKET_NAME"
+echo " Model ID:      $MODEL_ID"
 echo " Model Subdir:  $MODEL_SUBDIR"
 echo " Served Name:   $SERVED_MODEL_NAME"
 echo "=========================================================="
@@ -70,6 +85,15 @@ else
     echo "Bucket gs://${BUCKET_NAME} already exists."
 fi
 
+# 2.5 Auto-verify & sync model weights if missing
+echo "[2.5/5] Checking model weights at gs://${BUCKET_NAME}/${MODEL_SUBDIR}..."
+if ! gcloud storage ls "gs://${BUCKET_NAME}/${MODEL_SUBDIR}/config.json" &>/dev/null; then
+    echo "Model weights missing in GCS. Syncing ${MODEL_ID} to gs://${BUCKET_NAME}/${MODEL_SUBDIR}..."
+    python3 sync_model.py --model "${MODEL_ID}" --bucket "${BUCKET_NAME}" --subdir "${MODEL_SUBDIR}"
+else
+    echo "Model weights verified in GCS bucket."
+fi
+
 # 3. Create IAM Service Account
 SA_NAME="vllm-cloudrun-sa"
 SA_EMAIL="${SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
@@ -84,26 +108,8 @@ gcloud storage buckets add-iam-policy-binding "gs://${BUCKET_NAME}" \
     --member="serviceAccount:${SA_EMAIL}" \
     --role="roles/storage.objectViewer" >/dev/null
 
-ENABLE_GPU="${ENABLE_GPU:-true}"
-
 # 4. Deploy to Cloud Run
 echo "[4/5] Deploying Cloud Run Service (GPU: ${ENABLE_GPU})..."
-
-GPU_FLAGS=()
-VLLM_ENV_VARS="VLLM_API_KEY=${VLLM_API_KEY}"
-VLLM_SERVE_ARGS="serve,--model=/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080"
-
-if [[ "$ENABLE_GPU" == "true" ]]; then
-    GPU_FLAGS=(--gpu=1 --gpu-type=nvidia-l4 --cpu=8 --memory=32Gi)
-    VLLM_SERVE_ARGS="${VLLM_SERVE_ARGS},--gpu-memory-utilization=${GPU_MEMORY_UTILIZATION}"
-else
-    MODEL_SUBDIR="${MODEL_SUBDIR:-models/Qwen2.5-1.5B-Instruct}"
-    SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-qwen-1.5b}"
-    VLLM_SERVE_ARGS="serve,--model=/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080"
-    GPU_FLAGS=(--cpu=4 --memory=16Gi)
-    VLLM_ENV_VARS="${VLLM_ENV_VARS},VLLM_TARGET_DEVICE=cpu,OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4"
-    VLLM_SERVE_ARGS="${VLLM_SERVE_ARGS},--dtype=float32,--enforce-eager"
-fi
 
 gcloud beta run deploy "${SERVICE_NAME}" \
     --image="vllm/vllm-openai:latest" \
