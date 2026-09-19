@@ -94,7 +94,7 @@ if [[ "$ENABLE_GPU" == "true" ]]; then
 else
     GPU_FLAGS=(--cpu=4 --memory=16Gi)
     VLLM_ENV_VARS="${VLLM_ENV_VARS},VLLM_TARGET_DEVICE=cpu,OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4"
-    VLLM_EXTRA_ARG="--dtype=float16"
+    VLLM_EXTRA_ARG="--dtype=float32"
 fi
 
 gcloud beta run deploy "${SERVICE_NAME}" \
@@ -107,7 +107,7 @@ gcloud beta run deploy "${SERVICE_NAME}" \
     --execution-environment=gen2 \
     --add-volume="name=model-store,type=cloud-storage,bucket=${BUCKET_NAME},readonly=true" \
     --add-volume-mount="volume=model-store,mount-path=/mnt/models" \
-    --port=8000 \
+    --port=8080 \
     --set-env-vars="${VLLM_ENV_VARS}" \
     --args="serve",\
 "/mnt/models/${MODEL_SUBDIR}",\
@@ -115,12 +115,12 @@ gcloud beta run deploy "${SERVICE_NAME}" \
 "${VLLM_EXTRA_ARG}",\
 "--max-model-len=${MAX_MODEL_LEN}",\
 "--api-key=${VLLM_API_KEY}",\
-"--port=8000" \
+"--port=8080" \
     --min-instances="${MIN_INSTANCES}" \
     --max-instances="${MAX_INSTANCES}" \
     --concurrency="${CONCURRENCY}" \
     --timeout=900 \
-    --startup-probe=initialDelaySeconds=10,periodSeconds=10,timeoutSeconds=10,failureThreshold=60,tcpSocket.port=8000 \
+    --startup-probe=initialDelaySeconds=10,periodSeconds=10,timeoutSeconds=10,failureThreshold=60,tcpSocket.port=8080 \
     --no-allow-unauthenticated
 
 # 5. Output Service URL
