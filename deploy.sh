@@ -117,7 +117,9 @@ gcloud beta run deploy "${SERVICE_NAME}" \
     --min-instances="${MIN_INSTANCES}" \
     --max-instances="${MAX_INSTANCES}" \
     --concurrency="${CONCURRENCY}" \
-    --timeout=600 \
+    --timeout=900 \
+    --startup-probe-period=10 \
+    --startup-probe-failure-threshold=60 \
     --allow-unauthenticated
 
 # 5. Output Service URL
