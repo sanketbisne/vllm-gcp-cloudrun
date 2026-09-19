@@ -92,6 +92,9 @@ if [[ "$ENABLE_GPU" == "true" ]]; then
     GPU_FLAGS=(--gpu=1 --gpu-type=nvidia-l4 --cpu=8 --memory=32Gi)
     VLLM_SERVE_ARGS="${VLLM_SERVE_ARGS},--gpu-memory-utilization=${GPU_MEMORY_UTILIZATION}"
 else
+    MODEL_SUBDIR="${MODEL_SUBDIR:-models/Qwen2.5-1.5B-Instruct}"
+    SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-qwen-1.5b}"
+    VLLM_SERVE_ARGS="serve,/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080"
     GPU_FLAGS=(--cpu=4 --memory=16Gi)
     VLLM_ENV_VARS="${VLLM_ENV_VARS},VLLM_TARGET_DEVICE=cpu,OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4"
     VLLM_SERVE_ARGS="${VLLM_SERVE_ARGS},--dtype=float32"
