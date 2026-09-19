@@ -17,7 +17,12 @@ fi
 
 # Mandatory variables
 GCP_PROJECT_ID="${GCP_PROJECT_ID:-$(gcloud config get-value project 2>/dev/null || true)}"
-GCP_REGION="${GCP_REGION:-us-central1}"
+DETECTED_REGION="$(gcloud config get-value compute/region 2>/dev/null || true)"
+if [[ -n "$DETECTED_REGION" && "$DETECTED_REGION" != "(unset)" ]]; then
+    GCP_REGION="${GCP_REGION:-$DETECTED_REGION}"
+else
+    GCP_REGION="${GCP_REGION:-us-west1}"
+fi
 SERVICE_NAME="${SERVICE_NAME:-vllm-l4-server}"
 BUCKET_NAME="${BUCKET_NAME:-${GCP_PROJECT_ID}-vllm-models}"
 MODEL_SUBDIR="${MODEL_SUBDIR:-models/Qwen2.5-7B-Instruct}"
