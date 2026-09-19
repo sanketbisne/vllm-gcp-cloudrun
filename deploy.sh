@@ -85,10 +85,13 @@ ENABLE_GPU="${ENABLE_GPU:-true}"
 echo "[4/5] Deploying Cloud Run Service (GPU: ${ENABLE_GPU})..."
 
 GPU_FLAGS=()
+VLLM_DEVICE_ARG=""
 if [[ "$ENABLE_GPU" == "true" ]]; then
     GPU_FLAGS=(--gpu=1 --gpu-type=nvidia-l4 --cpu=8 --memory=32Gi)
+    VLLM_DEVICE_ARG="--gpu-memory-utilization=${GPU_MEMORY_UTILIZATION}"
 else
     GPU_FLAGS=(--cpu=4 --memory=16Gi)
+    VLLM_DEVICE_ARG="--device=cpu"
 fi
 
 gcloud beta run deploy "${SERVICE_NAME}" \
@@ -105,11 +108,10 @@ gcloud beta run deploy "${SERVICE_NAME}" \
     --args="serve",\
 "/mnt/models/${MODEL_SUBDIR}",\
 "--served-model-name=${SERVED_MODEL_NAME}",\
-"--gpu-memory-utilization=${GPU_MEMORY_UTILIZATION}",\
+"${VLLM_DEVICE_ARG}",\
 "--max-model-len=${MAX_MODEL_LEN}",\
 "--dtype=auto",\
 "--api-key=${VLLM_API_KEY}",\
-"--enable-chunked-prefill=true",\
 "--port=8000" \
     --min-instances="${MIN_INSTANCES}" \
     --max-instances="${MAX_INSTANCES}" \
