@@ -46,9 +46,9 @@ else
     MODEL_SUBDIR="${MODEL_SUBDIR:-models/Qwen2.5-1.5B-Instruct}"
     SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-qwen-1.5b}"
     GPU_FLAGS=(--cpu=4 --memory=16Gi)
-    VLLM_COMMAND="bash"
-    VLLM_SERVE_ARGS="-c,echo 'import torch, torch._ops; orig = torch._ops._OpNamespace.__getattr__; torch._ops._OpNamespace.__getattr__ = lambda *args: (lambda *a: None) if args[1] == \"init_cpu_memory_env\" else orig(*args)' > /tmp/sitecustomize.py && export PYTHONPATH=/tmp:\$PYTHONPATH && exec vllm serve /mnt/models/${MODEL_SUBDIR} --served-model-name ${SERVED_MODEL_NAME} --max-model-len ${MAX_MODEL_LEN} --api-key ${VLLM_API_KEY} --port 8080 --dtype float32 --enforce-eager"
-    VLLM_ENV_VARS="VLLM_API_KEY=${VLLM_API_KEY},VLLM_TARGET_DEVICE=cpu,OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4"
+    VLLM_COMMAND="vllm"
+    VLLM_SERVE_ARGS="serve,/mnt/models/${MODEL_SUBDIR},--served-model-name=${SERVED_MODEL_NAME},--max-model-len=${MAX_MODEL_LEN},--api-key=${VLLM_API_KEY},--port=8080,--dtype=float32,--enforce-eager"
+    VLLM_ENV_VARS="VLLM_API_KEY=${VLLM_API_KEY},PYTHONPATH=/mnt/models,VLLM_TARGET_DEVICE=cpu,OMP_NUM_THREADS=4,VLLM_CPU_KVCACHE_SPACE=4"
 fi
 
 if [[ -z "$GCP_PROJECT_ID" ]]; then
@@ -85,6 +85,12 @@ if ! gcloud storage buckets describe "gs://${BUCKET_NAME}" &>/dev/null; then
         --uniform-bucket-level-access
 else
     echo "Bucket gs://${BUCKET_NAME} already exists."
+fi
+
+# Upload sitecustomize.py for global Python multiprocessing monkey patching
+if [[ -f "sitecustomize.py" ]]; then
+    echo "Staging sitecustomize.py in gs://${BUCKET_NAME}/sitecustomize.py..."
+    gcloud storage cp sitecustomize.py "gs://${BUCKET_NAME}/sitecustomize.py" >/dev/null
 fi
 
 # 2.5 Auto-verify & sync model weights if missing
